@@ -5,13 +5,13 @@ import jwt from "jsonwebtoken";
 import asyncHandler from "express-async-handler";
 import { Pool } from "@neondatabase/serverless";
 import { PrismaNeon } from "@prisma/adapter-neon";
-import {withAccelerate} from '@prisma/extension-accelerate'
+import { withAccelerate } from "@prisma/extension-accelerate";
+import sendEmail from "../utils/mailtrap.js";
 
-
-const connectionString = `${process.env.DATABASE_URL}`
-const pool = new Pool({connectionString})
-const adapter = new PrismaNeon(pool)
-const prisma = new PrismaClient({adapter}).$extends(withAccelerate())
+const connectionString = `${process.env.DATABASE_URL}`;
+const pool = new Pool({ connectionString });
+const adapter = new PrismaNeon(pool);
+const prisma = new PrismaClient({ adapter }).$extends(withAccelerate());
 
 export const registerUser = async function (req, res) {
   const { name, email, password } = req.body;
@@ -51,9 +51,22 @@ export const registerUser = async function (req, res) {
     return res.status(400).json({ message: "User not created!" });
   }
 
-  return res.status(200).json({
-    user,
+  const result = await sendEmail(user.email, token);
+
+  if (result) {
+    return res.status(200).json({
+      user,
+    });
+    
+  }
+
+  return res.status(400).json({
+    message: "Failed to send Email to the user",
   });
+};
+
+const verify = async function (req, res) {
+  const { token } = req.parse.token;
 };
 
 export const loginUser = async function (req, res) {
@@ -77,6 +90,7 @@ export const loginUser = async function (req, res) {
     }
 
     const isMatch = bcrypt.compare(password, user.password);
+
     if (!isMatch) {
       return res.status(400).json({
         message: "Password is not matched",
@@ -99,7 +113,6 @@ export const loginUser = async function (req, res) {
 
     return res.status(201).json({
       success: true,
-      token,
       user: {
         id: user.id,
         name: user.name,
@@ -124,4 +137,3 @@ export const getAllUser = asyncHandler(async (req, res) => {
 
   return res.json(users);
 });
-
