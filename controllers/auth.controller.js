@@ -7,6 +7,7 @@ import { Pool } from "@neondatabase/serverless";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { withAccelerate } from "@prisma/extension-accelerate";
 import sendEmail from "../utils/mailtrap.js";
+import ApiSuccess from "../utils/apiSuccess.js";
 
 const connectionString = `${process.env.DATABASE_URL}`;
 const pool = new Pool({ connectionString });

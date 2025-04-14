@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
+import ApiError from "../utils/apiError.js";
 
 const prisma = new PrismaClient();
 
@@ -8,9 +9,7 @@ export const authMiddleware = async function (req, res, next) {
     req.cookies?.token || req.headers["authorization"]?.split(" ")[1];
 
   if (!token) {
-    return res.status(400).json({
-      message: "Token not found",
-    });
+    throw new ApiError(404, "Token not found");
   }
 
   try {
