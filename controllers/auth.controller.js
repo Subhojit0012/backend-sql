@@ -58,7 +58,6 @@ export const registerUser = async function (req, res) {
     return res.status(200).json({
       user,
     });
-    
   }
 
   return res.status(400).json({
@@ -80,6 +79,7 @@ export const loginUser = async function (req, res) {
   }
 
   try {
+    // get the user:
     const user = await prisma.user.findUnique({
       where: { email },
     });
@@ -90,6 +90,7 @@ export const loginUser = async function (req, res) {
       });
     }
 
+    // match the password:
     const isMatch = bcrypt.compare(password, user.password);
 
     if (!isMatch) {
@@ -98,6 +99,10 @@ export const loginUser = async function (req, res) {
       });
     }
 
+    // make sure the user is logged in:
+    user.isLoggedIn = true
+
+    // create the token
     const token = jwt.sign(
       {
         id: user.id,
@@ -112,15 +117,7 @@ export const loginUser = async function (req, res) {
     };
     res.cookie("token", token, cookieOptions);
 
-    return res.status(201).json({
-      success: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      },
-      message: "login success",
-    });
+    return res.json(ApiSuccess.create(200, "User login successfull", user));
   } catch (error) {
     return res.status(400).json({
       message: "Login failed",
