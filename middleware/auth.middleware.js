@@ -5,6 +5,7 @@ import ApiSuccess from "../utils/apiSuccess.js";
 
 const prisma = new PrismaClient();
 
+// here we will use the jwt token for validation
 export const authMiddleware = async function (req, res, next) {
   const token =
     req.cookies?.token || req.headers["authorization"]?.split(" ")[1];
@@ -44,9 +45,13 @@ export const authMiddleware = async function (req, res, next) {
 
 export const isLoggedIn = async (req, res, next) => {
   try {
-    const verificationToken = req.headers?.authorization.split(" ")[1];
+    const verificationToken = req.headers?.authorization?.split(" ")[1];
 
-    // findUnique does't work because of ?(verificationToken?) but findFirst worked 
+    if (!verificationToken) {
+      throw new ApiError(404, "Verified token not found!");
+    }
+
+    // findUnique does't work because of ?(verificationToken?) but findFirst worked
     const isUserLoggedIn = await prisma.user.findFirst({
       where: {
         verificationToken,
@@ -57,7 +62,16 @@ export const isLoggedIn = async (req, res, next) => {
       return res.json({ message: "user not found" });
     }
 
-    isUserLoggedIn.isVerified = true;
+    // directly isUserLoggedIn.isVerified = true not worked because this is not actually updating the isVerified value
+    // so I have to used the update query to update the isVerified in db
+    await prisma.user.update({
+      where: {
+        id: isUserLoggedIn.id,
+      },
+      data: {
+        isVerified: true,
+      },
+    });
 
     console.log(ApiSuccess.create(200, "User logged in"));
     next();
