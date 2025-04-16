@@ -8,6 +8,7 @@ import { PrismaNeon } from "@prisma/adapter-neon";
 import { withAccelerate } from "@prisma/extension-accelerate";
 import sendEmail from "../utils/mailtrap.js";
 import ApiSuccess from "../utils/apiSuccess.js";
+import ApiError from "../utils/apiError.js";
 
 const connectionString = `${process.env.DATABASE_URL}`;
 const pool = new Pool({ connectionString });
@@ -86,8 +87,12 @@ export const loginUser = async function (req, res) {
 
     if (!user) {
       return res.status(400).json({
-        message: "User already exists",
+        message: "User not exists",
       });
+    }
+
+    if (user.isLoggedIn) {
+      throw new ApiError(400, "user already logged in");
     }
 
     // match the password:
@@ -99,25 +104,37 @@ export const loginUser = async function (req, res) {
       });
     }
 
-    // make sure the user is logged in:
-    user.isLoggedIn = true
+    // make sure the user is verified before logged in:
+    if (user.isVerified) {
+      // you have to update like this
+      await prisma.user.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          isLoggedIn: true,
+        },
+      });
 
-    // create the token
-    const token = jwt.sign(
-      {
-        id: user.id,
-        role: user.role,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "24h" }
-    );
+      // create the token
+      const token = jwt.sign(
+        {
+          id: user.id,
+          role: user.role,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "24h" }
+      );
 
-    const cookieOptions = {
-      httpOnly: true,
-    };
-    res.cookie("token", token, cookieOptions);
+      const cookieOptions = {
+        httpOnly: true,
+      };
+      res.cookie("token", token, cookieOptions);
 
-    return res.json(ApiSuccess.create(200, "User login successfull", user));
+      return res.json(ApiSuccess.create(200, "User login successfull", user));
+    }
+
+    throw new ApiError(404, "User is not verified");
   } catch (error) {
     return res.status(400).json({
       message: "Login failed",
