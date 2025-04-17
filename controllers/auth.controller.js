@@ -15,6 +15,7 @@ const pool = new Pool({ connectionString });
 const adapter = new PrismaNeon(pool);
 const prisma = new PrismaClient({ adapter }).$extends(withAccelerate());
 
+// Register user:
 export const registerUser = async function (req, res) {
   const { name, email, password } = req.body;
 
@@ -70,6 +71,7 @@ const verify = async function (req, res) {
   const { token } = req.parse.token;
 };
 
+// Login user:
 export const loginUser = async function (req, res) {
   const { email, password } = req.body;
 
@@ -106,16 +108,6 @@ export const loginUser = async function (req, res) {
 
     // make sure the user is verified before logged in:
     if (user.isVerified) {
-      // you have to update like this
-      await prisma.user.update({
-        where: {
-          id: user.id,
-        },
-        data: {
-          isLoggedIn: true,
-        },
-      });
-
       // create the token
       const token = jwt.sign(
         {
@@ -126,12 +118,29 @@ export const loginUser = async function (req, res) {
         { expiresIn: "24h" }
       );
 
+      if (!token) {
+        throw new ApiError(400, "Token not created");
+      }
+
+      // you have to update like this
+      const updatedUser = await prisma.user.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          isLoggedIn: true,
+          verificationToken: token,
+        },
+      });
+
       const cookieOptions = {
         httpOnly: true,
       };
       res.cookie("token", token, cookieOptions);
 
-      return res.json(ApiSuccess.create(200, "User login successfull", user));
+      return res.json(
+        ApiSuccess.create(200, "User login successfull", updatedUser)
+      );
     }
 
     throw new ApiError(404, "User is not verified");
@@ -143,12 +152,55 @@ export const loginUser = async function (req, res) {
   }
 };
 
+// this is the password reset controller
+export const passwordReset = async function (req, res, next) {
+  const { newPassword } = req.body;
+  const { user } = req.user;
+
+  if (!newPassword) {
+    throw new ApiError(404, "Please enter new Password!");
+  }
+
+  try {
+    if (!user) {
+      throw new ApiError(400, "failed to get user object");
+    }
+    // bcrypt the new password
+    const newBryptPassword = await bcrypt.hash(newPassword, 10);
+
+    if (!newBryptPassword) {
+      throw new ApiError("Failed to hashed the password!");
+    }
+
+    const getPassword = await prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        password: newBryptPassword,
+      },
+    });
+
+    if (!getPassword) {
+      throw new ApiError(404, "Failed to update the password");
+    }
+
+    return ApiSuccess.create(200, "Password changed!");
+  } catch (error) {
+    throw new ApiError(500, "Something went wrong!", error);
+  }
+};
+
 export const logoutUser = async function (req, res) {
   const { id } = req.user;
 };
 
 export const getAllUser = asyncHandler(async (req, res) => {
   const users = await prisma.user.findMany();
+
+  if (!users) {
+    throw new ApiError(400, "There is no users");
+  }
 
   return res.json(users);
 });
