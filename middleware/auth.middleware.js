@@ -79,3 +79,30 @@ export const isLoggedIn = async (req, res, next) => {
     throw new ApiError(404, "Something went wrong!", error);
   }
 };
+
+// this controller will take the user email for password reset (middleware)
+export const _passwordResetEmail = async function (req, res, next) {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      throw new ApiError(404, "Please enter your Email!");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        email: email,
+      },
+    });
+
+    if (!user) {
+      throw new ApiError(404, "User not found!");
+    }
+
+    req.user = user;
+
+    next();
+  } catch (error) {
+    throw new ApiError(500, "Something went wrong!", error);
+  }
+};
