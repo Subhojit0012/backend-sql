@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
 import ApiError from "../utils/apiError.js";
 import ApiSuccess from "../utils/apiSuccess.js";
+import { passwordReset } from "../utils/mailtrap.js";
 
 const prisma = new PrismaClient();
 
@@ -81,7 +82,8 @@ export const isLoggedIn = async (req, res, next) => {
 };
 
 // this controller will take the user email for password reset (middleware)
-export const _passwordResetEmail = async function (req, res, next) {
+// when the user send the email. They will get the email
+export const passwordResetEmail = async (req, res, next) => {
   try {
     const { email } = req.body;
 
@@ -89,7 +91,7 @@ export const _passwordResetEmail = async function (req, res, next) {
       throw new ApiError(404, "Please enter your Email!");
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.user.findFirst({
       where: {
         email: email,
       },
@@ -99,10 +101,22 @@ export const _passwordResetEmail = async function (req, res, next) {
       throw new ApiError(404, "User not found!");
     }
 
-    req.user = user;
+    // ! gettin error here
+    // send the email to the user:
+    const isSend = await passwordReset(email);
+    console.log("Is pass reset email sent:", isSend);
 
-    next();
+    if (isSend) {
+      req.user = user;
+
+      next();
+
+      return res.json(ApiSuccess.create(200, "Email sent to user", isSend));
+    }
+    // !
+    throw new ApiError(404, "Failed to send Email for Reset-Password");
   } catch (error) {
-    throw new ApiError(500, "Something went wrong!", error);
+    console.error("Error: Failed to send Email", error);
+    return res.status(500).json(error);
   }
 };
