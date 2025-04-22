@@ -3,15 +3,13 @@ import "dotenv/config";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import userRouter from "./routes/user.route.js";
-import ws from 'ws'
+import ws from "ws";
 import { neonConfig } from "@neondatabase/serverless";
-import {userPasswordReset} from "./routes/verify/userPasswordVerify.route.js"
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-
-neonConfig.webSocketConstructor = ws
+neonConfig.webSocketConstructor = ws;
 
 app.use(cookieParser());
 app.use(
@@ -23,7 +21,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/v1/user", userRouter);
-app.use("/api/v1/user/verify", userPasswordReset)
 
 app.listen(PORT, () => {
   console.log(`server running at: http://localhost:${PORT}`);
